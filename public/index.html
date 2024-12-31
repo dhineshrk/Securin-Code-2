@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CVE List</title>
+  <link rel="stylesheet" href="styles.css"> <!-- Add styles if needed -->
+</head>
+<body>
+  <header>
+    <h1>CVE LIST</h1>
+  </header>
+
+  <section>
+    <label for="cve-search">Enter CVE ID: </label>
+    <input type="text" id="cve-search" placeholder="Enter CVE ID">
+    
+    <label for="cvss-search">Enter CVSS Score: </label>
+    <input type="number" id="cvss-search" placeholder="Enter CVSS Score (Optional)">
+    
+    <label for="published-search">Enter Published Date: </label>
+    <input type="date" id="published-search" placeholder="Enter Published Date (Optional)">
+    
+    <button id="search-btn">Search</button>
+
+    <p>Total Records: <span id="total-records">0</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>CVE ID</th>
+          <th>Identifier</th>
+          <th>Published Date</th>
+          <th>Last Modified Date</th>
+          <th>Status</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody id="cve-list">
+        <!-- Rows will be dynamically rendered using JavaScript -->
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    <div id="pagination">
+      <button id="prev-page">◄</button>
+      <span id="page-info">1 of N</span>
+      <button id="next-page">►</button>
+    </div>
+  </footer>
+
+  <script>
+    let currentPage = 1;
+let recordsPerPage = 10;
+let searchQuery = '';
+let cvssScoreFilter = '';
+let publishedDateFilter = '';
+
+// Format date function
+function formatDate(dateString) {
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+}
+
+// Function to load CVE vulnerabilities
+async function loadVulnerabilities() {
+    try {
+        const response = await fetch(`/data?page=${currentPage}&limit=${recordsPerPage}&search=${searchQuery}&cvss=${cvssScoreFilter}&published=${publishedDateFilter}`);
+        const data = await response.json();
+
+        const totalRecords = data.totalRecords;
+        document.getElementById('total-records').textContent = `Total Records: ${totalRecords}`;
+
+        const totalPages = Math.ceil(totalRecords / recordsPerPage);
+        document.getElementById('page-info').textContent = `${currentPage} of ${totalPages}`;
+
+        const tableBody = document.getElementById('cve-list');
+        let rowsHTML = '';
+        data.records.forEach(vuln => {
+            rowsHTML += `
+                <tr class="cve-row" data-id="${vuln.id}">
+                    <td>${vuln.id}</td>
+                    <td>${vuln.sourceIdentifier}</td>
+                    <td>${formatDate(vuln.published)}</td>
+                    <td>${formatDate(vuln.lastModified)}</td> 
+                    <td>${vuln.vulnStatus}</td>
+                    <td>${vuln.cvssScore}</td>
+                </tr>`;
+        });
+        tableBody.innerHTML = rowsHTML;
+
+        // Enable or disable pagination buttons
+        document.getElementById('prev-page').disabled = currentPage === 1;
+        document.getElementById('next-page').disabled = currentPage === totalPages;
+
+        // Add event listeners to each row for redirecting to CVE details page
+        const rows = document.querySelectorAll('.cve-row');
+        rows.forEach(row => {
+            row.addEventListener('click', (e) => {
+                const cveId = e.currentTarget.getAttribute('data-id');
+                window.location.href = `cve/${cveId}`; // Navigate to details page
+            });
+        });
+    } catch (error) {
+        console.error('Error loading vulnerabilities:', error);
+    }
+}
+
+// Event listener for search button
+document.getElementById('search-btn').addEventListener('click', () => {
+    searchQuery = document.getElementById('cve-search').value.trim();
+    cvssScoreFilter = document.getElementById('cvss-search').value.trim(); // Get CVSS score filter value
+    publishedDateFilter = document.getElementById('published-search').value.trim(); // Get Published Date filter value
+    currentPage = 1;  // Reset to first page when search starts
+    loadVulnerabilities();
+});
+
+// Trigger search on Enter key press
+// Trigger search on Enter key press for all input fields
+document.querySelectorAll('#cve-search, #cvss-search, #published-search').forEach(inputField => {
+    inputField.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('search-btn').click();
+        }
+    });
+});
+
+
+
+// Event listener for pagination controls
+document.getElementById('prev-page').addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        loadVulnerabilities();
+    }
+});
+
+document.getElementById('next-page').addEventListener('click', () => {
+    currentPage++;
+    loadVulnerabilities();
+});
+
+// Load vulnerabilities on page load
+document.addEventListener('DOMContentLoaded', loadVulnerabilities);
+
+  </script>
+</body>
+</html>
